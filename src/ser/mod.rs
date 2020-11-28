@@ -85,7 +85,7 @@ fn write_f128<W: Write + ?Sized>(writer: &mut W, val: Decimal128) -> Result<()> 
     writer.write_all(&raw).map_err(From::from)
 }
 
-fn serialize_array<W: Write + ?Sized>(writer: &mut W, arr: &[Bson]) -> Result<()> {
+pub fn serialize_array<W: Write + ?Sized>(writer: &mut W, arr: &[Bson]) -> Result<()> {
     let mut buf = Vec::new();
     for (key, val) in arr.iter().enumerate() {
         serialize_bson(&mut buf, &key.to_string(), val)?;

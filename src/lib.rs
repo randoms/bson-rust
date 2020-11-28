@@ -196,9 +196,9 @@ pub use self::{
         Regex,
         Timestamp,
     },
-    de::{from_bson, from_document, Deserializer},
+    de::{from_bson, from_document, Deserializer, deserialize_array},
     decimal128::Decimal128,
-    ser::{to_bson, to_document, Serializer},
+    ser::{to_bson, to_document, Serializer, serialize_array},
 };
 
 #[macro_use]

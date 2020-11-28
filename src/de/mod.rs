@@ -172,7 +172,7 @@ fn read_f128<R: Read + ?Sized>(reader: &mut R) -> Result<Decimal128> {
     Ok(val)
 }
 
-fn deserialize_array<R: Read + ?Sized>(reader: &mut R, utf8_lossy: bool) -> Result<Array> {
+pub fn deserialize_array<R: Read + ?Sized>(reader: &mut R, utf8_lossy: bool) -> Result<Array> {
     let mut arr = Array::new();
     let length = read_i32(reader)?;
 
