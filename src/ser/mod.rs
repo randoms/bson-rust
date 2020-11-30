@@ -29,7 +29,12 @@ pub use self::{
     serde::Serializer,
 };
 
-use std::{io::Write, mem};
+use std::{io::{
+    Write,
+    BufWriter,
+    Seek,
+    SeekFrom
+}, mem};
 
 use chrono::Timelike;
 
@@ -39,7 +44,10 @@ use crate::{
     bson::{Binary, Bson, DbPointer, Document, JavaScriptCodeWithScope, Regex},
     spec::BinarySubtype,
 };
-use ::serde::Serialize;
+use ::serde::{
+    Serialize
+};
+use std::fs::File;
 
 fn write_string<W: Write + ?Sized>(writer: &mut W, s: &str) -> Result<()> {
     writer.write_all(&(s.len() as i32 + 1).to_le_bytes())?;
@@ -100,7 +108,50 @@ pub fn serialize_array<W: Write + ?Sized>(writer: &mut W, arr: &[Bson]) -> Resul
     Ok(())
 }
 
-pub(crate) fn serialize_bson<W: Write + ?Sized>(
+pub struct StreamSerializer {
+    writer: BufWriter<File>,
+    index: usize,
+    length: usize,
+}
+
+impl StreamSerializer
+{
+    pub fn new(writer: BufWriter<File>) -> StreamSerializer {
+        StreamSerializer{
+            writer: writer,
+            index: 0,
+            length: 0,
+        }
+    }
+
+    pub fn serialize_element(&mut self, value: &Bson) -> Result<()>
+    {
+        if self.index == 0 {
+            write_i32(
+                &mut self.writer,
+                0
+            )?;
+        }
+        let mut buf = Vec::new();
+        serialize_bson(&mut buf, &(self.index).to_string(), value)?;
+        self.writer.write_all(&buf)?;
+        self.index += 1;
+        self.length += buf.len();
+        return Ok(());
+    }
+
+    pub fn end(&mut self) -> Result<()> {
+        self.writer.write_all(b"\0")?;
+        self.writer.seek(SeekFrom::Start(0))?;
+        write_i32(
+            &mut self.writer,
+            (self.length + mem::size_of::<i32>() + mem::size_of::<u8>()) as i32,
+        )?;
+        return Ok(());
+    }
+}
+
+pub fn serialize_bson<W: Write + ?Sized>(
     writer: &mut W,
     key: &str,
     val: &Bson,

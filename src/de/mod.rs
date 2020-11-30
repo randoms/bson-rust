@@ -29,7 +29,8 @@ pub use self::{
     serde::Deserializer,
 };
 
-use std::io::Read;
+use std::io::{Read, BufReader, SeekFrom, Seek};
+use std::fs::File;
 
 use chrono::{
     offset::{LocalResult, TimeZone},
@@ -197,7 +198,40 @@ pub fn deserialize_array<R: Read + ?Sized>(reader: &mut R, utf8_lossy: bool) -> 
     Ok(arr)
 }
 
-pub(crate) fn deserialize_bson_kvp<R: Read + ?Sized>(
+pub struct StreamDeserializer<'a>
+{
+    reader: &'a mut BufReader<File>,
+    length: usize,
+}
+
+impl<'a> StreamDeserializer<'a> {
+    pub fn new(reader: &'a mut BufReader<File>) -> StreamDeserializer{
+        let length = read_i32(reader.get_mut()).unwrap();
+        StreamDeserializer {
+            reader: reader,
+            length: length as usize,
+        }
+    }
+}
+
+impl Iterator for StreamDeserializer<'_> {
+    type Item = Bson;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let tag = read_u8(self.reader.get_mut()).unwrap();
+        if tag == 0 {
+            return None;
+        }
+        let (_, val) = deserialize_bson_kvp(self.reader.get_mut(), tag, false).unwrap();
+        let current_pos = self.reader.seek(SeekFrom::Current(0)).expect ("Could not get current position!");
+        if current_pos > self.length as u64 {
+            return None;
+        }
+        return Some(val);
+    }
+}
+
+pub fn deserialize_bson_kvp<R: Read + ?Sized>(
     reader: &mut R,
     tag: u8,
     utf8_lossy: bool,
